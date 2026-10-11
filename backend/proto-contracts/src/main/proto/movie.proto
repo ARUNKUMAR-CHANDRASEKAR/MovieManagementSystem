@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package movies.v1;
+
+option java_multiple_files = true;
+option java_package = "com.govtech.movies.grpc.movie";
+
+import "google/protobuf/empty.proto";
+
+// Owned by movie-service. Called by api-gateway and by people-service.
+service MovieService {
+  rpc ListMovies (ListMoviesRequest) returns (MoviePage);
+  rpc GetMovie (MovieIdRequest) returns (Movie);
+  rpc CreateMovie (MovieInput) returns (Movie);
+  rpc UpdateMovie (UpdateMovieRequest) returns (Movie);
+  rpc DeleteMovie (MovieIdRequest) returns (google.protobuf.Empty);
+
+  // The image type is detected from the bytes; the client's claimed type is not trusted.
+  rpc UploadArtwork (UploadArtworkRequest) returns (Movie);
+  rpc GetArtwork (MovieIdRequest) returns (Artwork);
+
+  // Credits link a movie to a person (cast or creator) owned by people-service.
+  rpc AddCredit (CreditRequest) returns (Movie);
+  rpc RemoveCredit (CreditRequest) returns (Movie);
+  rpc ListMoviesByPerson (PersonRef) returns (MovieList);
+  rpc DeleteCreditsForPerson (PersonRef) returns (google.protobuf.Empty);
+}
+
+enum Region {
+  REGION_UNSPECIFIED = 0;
+  SINGAPORE = 1;
+  INDIA = 2;
+  HOLLYWOOD = 3;
+}
+
+message Movie {
+  int64 id = 1;
+  string title = 2;
+  optional int32 release_year = 3;
+  string genre = 4;
+  string synopsis = 5;
+  // 0 when the movie has no artwork. Also used by clients as a cache-busting version.
+  int64 artwork_updated_at_ms = 6;
+  repeated int64 person_ids = 7;
+  Region region = 8; // REGION_UNSPECIFIED when not set
+}
+
+message MovieInput {
+  string title = 1;
+  optional int32 release_year = 2;
+  string genre = 3;
+  string synopsis = 4;
+  Region region = 5; // REGION_UNSPECIFIED = no region
+}
+
+message MovieIdRequest { int64 id = 1; }
+message UpdateMovieRequest { int64 id = 1; MovieInput movie = 2; }
+
+message ListMoviesRequest {
+  string search = 1; // matched against the title, case-insensitive; empty = all
+  int32 page = 2;    // zero-based
+  int32 size = 3;    // 1..100
+  Region region = 4; // REGION_UNSPECIFIED = all regions
+}
+
+message MoviePage {
+  repeated Movie movies = 1;
+  int64 total_count = 2;
+  int32 page = 3;
+  int32 size = 4;
+}
+
+message MovieList { repeated Movie movies = 1; }
+
+message UploadArtworkRequest {
+  int64 movie_id = 1;
+  bytes data = 2;
+}
+
+message Artwork {
+  string content_type = 1;
+  bytes data = 2;
+}
+
+message CreditRequest {
+  int64 movie_id = 1;
+  int64 person_id = 2;
+}
+
+message PersonRef { int64 person_id = 1; }

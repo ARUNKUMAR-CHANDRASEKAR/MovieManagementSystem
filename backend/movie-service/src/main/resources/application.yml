@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: movie-service
+  datasource:
+    url: ${MOVIE_DB_URL:jdbc:postgresql://localhost:5433/movies}
+    username: ${MOVIE_DB_USER:movies}
+    password: ${MOVIE_DB_PASSWORD:movies_dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+grpc:
+  port: ${MOVIE_GRPC_PORT:9091}
+  # Uploaded artwork travels as one gRPC message, so allow a little over the 5 MB artwork limit.
+  max-message-bytes: 6291456
+
+people-service:
+  host: ${PEOPLE_GRPC_HOST:localhost}
+  port: ${PEOPLE_GRPC_PORT:9092}

@@ -1,0 +1,88 @@
+type Query {
+  "Movies sorted by title. `search` matches part of the title, case-insensitive. Leave `region` empty for all regions."
+  movies(search: String = "", region: Region, page: Int = 0, size: Int = 12): MoviePage!
+  movie(id: ID!): Movie!
+
+  "Cast and creators sorted by name. Leave `role` empty to list both."
+  people(search: String = "", role: PersonRole, page: Int = 0, size: Int = 12): PersonPage!
+  person(id: ID!): Person!
+}
+
+type Mutation {
+  createMovie(input: MovieInput!): Movie!
+  updateMovie(id: ID!, input: MovieInput!): Movie!
+  deleteMovie(id: ID!): Boolean!
+  "JPEG, PNG, GIF or WebP, at most 5 MB, sent as base64. Replaces any existing artwork."
+  uploadArtwork(movieId: ID!, dataBase64: String!): Movie!
+
+  createPerson(input: PersonInput!): Person!
+  updatePerson(id: ID!, input: PersonInput!): Person!
+  "Also removes the person from every movie."
+  deletePerson(id: ID!): Boolean!
+
+  "Links a cast member or creator to a movie. Adding an existing link does nothing."
+  addCredit(movieId: ID!, personId: ID!): Movie!
+  removeCredit(movieId: ID!, personId: ID!): Movie!
+}
+
+type Movie {
+  id: ID!
+  title: String!
+  releaseYear: Int
+  genre: String!
+  synopsis: String!
+  "Null when not set."
+  region: Region
+  "Null when the movie has no artwork."
+  artworkUrl: String
+  "Cast and creators of this movie."
+  people: [Person!]!
+}
+
+type Person {
+  id: ID!
+  name: String!
+  role: PersonRole!
+  bio: String!
+  "Movies this person is credited on."
+  movies: [Movie!]!
+}
+
+enum Region {
+  SINGAPORE
+  INDIA
+  HOLLYWOOD
+}
+
+enum PersonRole {
+  CAST
+  CREATOR
+}
+
+type MoviePage {
+  items: [Movie!]!
+  totalCount: Int!
+  page: Int!
+  size: Int!
+}
+
+type PersonPage {
+  items: [Person!]!
+  totalCount: Int!
+  page: Int!
+  size: Int!
+}
+
+input MovieInput {
+  title: String!
+  releaseYear: Int
+  genre: String = ""
+  synopsis: String = ""
+  region: Region
+}
+
+input PersonInput {
+  name: String!
+  role: PersonRole!
+  bio: String = ""
+}

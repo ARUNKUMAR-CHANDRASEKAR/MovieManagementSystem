@@ -1,0 +1,9 @@
+.gradle/
+**/build/
+**/node_modules/
+**/.svelte-kit/
+.env
+.idea/
+.DS_Store
+.claude/
+docs/assessment.pdf

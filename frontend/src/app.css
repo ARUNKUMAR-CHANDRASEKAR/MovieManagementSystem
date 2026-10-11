@@ -1,0 +1,106 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #16181d;
+  --muted: #5d6573;
+  --border: #dde1e7;
+  --accent: #c2410c;
+  --accent-text: #ffffff;
+  --danger: #b91c1c;
+  --success: #15803d;
+  --skeleton: #e7eaee;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.04);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --surface: #181b21;
+    --text: #eceef2;
+    --muted: #9aa3b2;
+    --border: #2a2f38;
+    --accent: #fb923c;
+    --accent-text: #1a0d02;
+    --danger: #f87171;
+    --success: #4ade80;
+    --skeleton: #232730;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+a { color: inherit; }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5rem; }
+h1 { font-size: clamp(1.5rem, 4vw, 2rem); }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.55rem 1rem; min-height: 2.5rem;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-weight: 500; text-decoration: none; cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.danger { color: var(--danger); }
+.btn.small { padding: 0.3rem 0.65rem; min-height: 2rem; font-size: 0.875rem; }
+
+input, textarea, select {
+  width: 100%; padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); font: inherit;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible, .btn:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+textarea { resize: vertical; min-height: 6rem; }
+label { font-weight: 500; font-size: 0.9rem; }
+
+.field { display: grid; gap: 0.3rem; margin-bottom: 1rem; }
+.field-error { color: var(--danger); font-size: 0.85rem; }
+.hint { color: var(--muted); font-size: 0.85rem; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel { padding: 1.25rem; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+.toolbar .grow { flex: 1 1 220px; }
+
+.status { color: var(--muted); font-size: 0.9rem; min-height: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+
+.spinner {
+  width: 1rem; height: 1rem; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite; flex: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.skeleton { background: var(--skeleton); border-radius: 6px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+
+.alert { padding: 0.9rem 1rem; border-radius: 8px; border: 1px solid var(--danger); color: var(--danger); display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+.empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+
+.badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.badge.CREATOR { border-color: var(--accent); color: var(--accent); }
+
+.movie-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+@media (max-width: 480px) { .movie-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; } }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) { .spinner, .skeleton { animation: none; } }

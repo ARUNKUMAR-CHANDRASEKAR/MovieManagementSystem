@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package people.v1;
+
+option java_multiple_files = true;
+option java_package = "com.govtech.movies.grpc.people";
+
+import "google/protobuf/empty.proto";
+
+// Owned by people-service. Called by api-gateway and by movie-service.
+service PeopleService {
+  rpc ListPeople (ListPeopleRequest) returns (PersonPage);
+  rpc GetPerson (PersonIdRequest) returns (Person);
+  rpc GetPeopleByIds (PersonIdsRequest) returns (PersonList);
+  rpc CreatePerson (PersonInput) returns (Person);
+  rpc UpdatePerson (UpdatePersonRequest) returns (Person);
+  // Also removes the person's credits in movie-service.
+  rpc DeletePerson (PersonIdRequest) returns (google.protobuf.Empty);
+}
+
+enum PersonRole {
+  PERSON_ROLE_UNSPECIFIED = 0;
+  CAST = 1;
+  CREATOR = 2;
+}
+
+message Person {
+  int64 id = 1;
+  string name = 2;
+  PersonRole role = 3;
+  string bio = 4;
+}
+
+message PersonInput {
+  string name = 1;
+  PersonRole role = 2;
+  string bio = 3;
+}
+
+message PersonIdRequest { int64 id = 1; }
+message PersonIdsRequest { repeated int64 ids = 1; }
+message UpdatePersonRequest { int64 id = 1; PersonInput person = 2; }
+
+message ListPeopleRequest {
+  string search = 1;     // matched against the name, case-insensitive; empty = all
+  PersonRole role = 2;   // PERSON_ROLE_UNSPECIFIED = both roles
+  int32 page = 3;        // zero-based
+  int32 size = 4;        // 1..100
+}
+
+message PersonPage {
+  repeated Person people = 1;
+  int64 total_count = 2;
+  int32 page = 3;
+  int32 size = 4;
+}
+
+message PersonList { repeated Person people = 1; }

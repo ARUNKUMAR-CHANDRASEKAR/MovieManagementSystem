@@ -1,0 +1,31 @@
+# Local development databases. One database per service: each service owns its data.
+services:
+  movie-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: movies
+      POSTGRES_USER: movies
+      POSTGRES_PASSWORD: movies_dev
+    ports: ["5433:5432"]
+    volumes: ["movie_db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U movies -d movies"]
+      interval: 5s
+      retries: 10
+
+  people-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: people
+      POSTGRES_USER: people
+      POSTGRES_PASSWORD: people_dev
+    ports: ["5434:5432"]
+    volumes: ["people_db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U people -d people"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  movie_db:
+  people_db:

@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: people-service
+  datasource:
+    url: ${PEOPLE_DB_URL:jdbc:postgresql://localhost:5434/people}
+    username: ${PEOPLE_DB_USER:people}
+    password: ${PEOPLE_DB_PASSWORD:people_dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+grpc:
+  port: ${PEOPLE_GRPC_PORT:9092}
+  max-message-bytes: 4194304
+
+movie-service:
+  host: ${MOVIE_GRPC_HOST:localhost}
+  port: ${MOVIE_GRPC_PORT:9091}

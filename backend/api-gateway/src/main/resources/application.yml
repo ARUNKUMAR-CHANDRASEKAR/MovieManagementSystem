@@ -1,0 +1,22 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  graphql:
+    graphiql:
+      enabled: true # browse http://localhost:8080/graphiql to try queries
+
+grpc:
+  # Artwork is returned as one gRPC message, so allow a little over the 5 MB artwork limit.
+  max-message-bytes: 6291456
+  deadline-seconds: 5
+
+movie-service:
+  host: ${MOVIE_GRPC_HOST:localhost}
+  port: ${MOVIE_GRPC_PORT:9091}
+
+people-service:
+  host: ${PEOPLE_GRPC_HOST:localhost}
+  port: ${PEOPLE_GRPC_PORT:9092}
