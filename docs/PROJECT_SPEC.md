@@ -54,7 +54,7 @@ Svelte frontend in **TypeScript**, Spring Boot services in **Kotlin**.
 
 ## Architecture
 
-See the README. Ports: gateway HTTP 8080, movie-service gRPC 9091, people-service gRPC 9092, Postgres 5433 and 5434.
+See the README. Ports: gateway HTTP 8080, movie-service gRPC 9091, people-service gRPC 9092, showtime-service gRPC 9093, Postgres 5433, 5434 and 5435.
 Each service owns its own database. The gateway has no database.
 
 ## Status (2026-10-11)
@@ -70,10 +70,10 @@ Each service owns its own database. The gateway has no database.
 | Extra: link people to movies | Done |
 | Extra: location tabs on Movies (All, Singapore, Malaysia = where showing) | Done (replaced the earlier film-origin region) |
 | Extra: search by location (Singapore, Malaysia), showtimes per location, seat map, sample booking | Done (showtime-service) |
-| 2+ Spring Boot services, gRPC between them | Done (gateway, movie-service, people-service) |
+| 2+ Spring Boot services, gRPC between them | Done (4 services: gateway, movie-service, people-service, showtime-service) |
 | GraphQL frontend to backend | Done |
-| Unit tests with edge cases | Done: backend 112, frontend 57 |
-| Integration tests | Done: 15 repository tests + 9 full-stack tests (Testcontainers) |
+| Unit tests with edge cases | Done |
+| Integration tests | Done: repository tests + 17 full-stack tests (Testcontainers) |
 | Responsive, progress feedback | Done |
 | README (setup, run, AI usage) | Done |
 | Git repository | **To do:** `git init`, commit, push |

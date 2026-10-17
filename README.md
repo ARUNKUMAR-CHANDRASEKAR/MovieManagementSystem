@@ -11,7 +11,7 @@ A web app for managing movies, their artwork, and their cast and creators.
 ## Features
 
 - List movies with artwork, with search by title and pagination.
-- Location tabs on the Movies page: All, Singapore, Malaysia (`/?showing=SINGAPORE`) list the movies showing
+- Location tabs on the Movies page: All, Singapore, Malaysia (`/?showingIn=SINGAPORE`) list the movies showing
   there, combined with search and paging. Cards then open the movie's showtimes in that country.
 - Add, edit and delete movies.
 - Upload movie artwork (JPEG, PNG, GIF or WebP, up to 5 MB) with a real upload progress bar.
