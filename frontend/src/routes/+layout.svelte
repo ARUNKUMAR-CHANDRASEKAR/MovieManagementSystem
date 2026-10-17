@@ -10,7 +10,8 @@
   let search = $state('');
 
   function isActive(path: string) {
-    return path === '/' ? page.url.pathname === '/' || page.url.pathname.startsWith('/movies') : page.url.pathname.startsWith(path);
+    if (path === '/') return page.url.pathname === '/' || (page.url.pathname.startsWith('/movies') && !page.url.pathname.endsWith('/showtimes'));
+    return page.url.pathname.startsWith(path) || (path === '/showing' && page.url.pathname.endsWith('/showtimes'));
   }
 
   function searchAll(event: SubmitEvent) {
@@ -30,6 +31,7 @@
     <nav>
       <a href="/" aria-current={isActive('/') ? 'page' : undefined}>Movies</a>
       <a href="/people" aria-current={isActive('/people') ? 'page' : undefined}>Cast &amp; Creators</a>
+      <a href="/showing" aria-current={isActive('/showing') || page.url.pathname.startsWith('/book') ? 'page' : undefined}>Now Showing</a>
     </nav>
     <form role="search" onsubmit={searchAll}>
       <label for="global-search" class="visually-hidden">Search movies, cast and creators</label>
@@ -48,7 +50,7 @@
   header { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
   .bar { display: flex; align-items: center; gap: 1rem 1.5rem; flex-wrap: wrap; padding-top: 0.6rem; padding-bottom: 0.6rem; }
   .logo { font-weight: 700; font-size: 1.1rem; text-decoration: none; white-space: nowrap; }
-  nav { display: flex; gap: 0.25rem; }
+  nav { display: flex; gap: 0.25rem; flex-wrap: wrap; }
   nav a { text-decoration: none; padding: 0.4rem 0.7rem; border-radius: 6px; color: var(--muted); font-weight: 500; white-space: nowrap; }
   nav a[aria-current='page'] { color: var(--text); background: var(--bg); }
   form { flex: 1 1 200px; margin-left: auto; max-width: 320px; }

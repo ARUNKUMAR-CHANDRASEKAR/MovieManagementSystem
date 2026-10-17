@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { REGION_LABEL, type Movie } from '$lib/types';
-  let { movie }: { movie: Movie } = $props();
+  import type { Movie } from '$lib/types';
+  // href: where the card links to; the movie page by default.
+  let { movie, href = `/movies/${movie.id}` }: { movie: Movie; href?: string } = $props();
 </script>
 
-<a class="card movie" href="/movies/{movie.id}">
+<a class="card movie" {href}>
   <div class="poster">
     {#if movie.artworkUrl}
       <img src={movie.artworkUrl} alt="Artwork for {movie.title}" loading="lazy" />
@@ -13,7 +14,7 @@
   </div>
   <div class="info">
     <strong>{movie.title}</strong>
-    <span class="hint">{[movie.releaseYear, movie.region && REGION_LABEL[movie.region], movie.genre].filter(Boolean).join(' · ') || ' '}</span>
+    <span class="hint">{[movie.releaseYear, movie.genre].filter(Boolean).join(' · ') || ' '}</span>
   </div>
 </a>
 

@@ -1,0 +1,69 @@
+# Search by location and seat booking. Data lives in showtime-service.
+
+extend type Query {
+  "Movies with upcoming shows in a country, sorted by title."
+  moviesShowing(country: Country!): [Movie!]!
+  "Cinemas. Leave `country` empty for all countries."
+  theatres(country: Country): [Theatre!]!
+  "Upcoming shows of a movie, sorted by location then time. Leave `country` empty for all countries."
+  showtimes(movieId: ID!, country: Country): [Showtime!]!
+  showtime(id: ID!): Showtime!
+}
+
+extend type Mutation {
+  "Schedules a show. Used to set up sample data."
+  createShowtime(input: ShowtimeInput!): Showtime!
+  "Sample booking without payment. Books all seats or none; fails if any seat is already sold."
+  bookSeats(showtimeId: ID!, seats: [String!]!, customerName: String!): Booking!
+}
+
+"Where a movie is screened."
+enum Country {
+  SINGAPORE
+  MALAYSIA
+}
+
+type Theatre {
+  id: ID!
+  name: String!
+  country: Country!
+  "Area, e.g. Orchard."
+  location: String!
+  "Rows are lettered A, B, C… and seats numbered from 1, so seats are A1, A2…"
+  seatRows: Int!
+  seatsPerRow: Int!
+}
+
+type Showtime {
+  id: ID!
+  "ISO-8601 instant in UTC, e.g. 2026-10-12T11:30:00Z. Show it in the theatre's time zone."
+  startsAt: String!
+  "Price of one seat, in cents."
+  priceCents: Int!
+  "SGD or MYR."
+  currency: String!
+  seatsLeft: Int!
+  "Only filled for `showtime(id)` and bookings."
+  soldSeats: [String!]!
+  theatre: Theatre!
+  "Null if the movie has since been deleted."
+  movie: Movie
+}
+
+type Booking {
+  "Booking reference, e.g. BK-000042."
+  reference: String!
+  seats: [String!]!
+  totalCents: Int!
+  currency: String!
+  customerName: String!
+  showtime: Showtime!
+}
+
+input ShowtimeInput {
+  movieId: ID!
+  theatreId: ID!
+  "ISO-8601 date-time with offset, e.g. 2026-10-12T19:30:00+08:00."
+  startsAt: String!
+  priceCents: Int!
+}

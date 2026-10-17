@@ -68,17 +68,18 @@ Each service owns its own database. The gateway has no database.
 | Add, update, delete cast and creators | Done |
 | Search movies, cast, creators | Done (per list + global /search page) |
 | Extra: link people to movies | Done |
-| Extra: region tabs (Singapore, India, Hollywood) | Done |
+| Extra: location tabs on Movies (All, Singapore, Malaysia = where showing) | Done (replaced the earlier film-origin region) |
+| Extra: search by location (Singapore, Malaysia), showtimes per location, seat map, sample booking | Done (showtime-service) |
 | 2+ Spring Boot services, gRPC between them | Done (gateway, movie-service, people-service) |
 | GraphQL frontend to backend | Done |
 | Unit tests with edge cases | Done: backend 112, frontend 57 |
+| Integration tests | Done: 15 repository tests + 9 full-stack tests (Testcontainers) |
 | Responsive, progress feedback | Done |
 | README (setup, run, AI usage) | Done |
 | Git repository | **To do:** `git init`, commit, push |
 
 Not done (optional):
 - Kafka audit events and an Activity History screen.
-- Integration tests against real Postgres (Testcontainers).
 - Running the whole stack in Docker Compose.
 
 ## Decisions

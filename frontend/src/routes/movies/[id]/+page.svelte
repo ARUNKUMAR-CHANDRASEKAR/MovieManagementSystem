@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { ApiError, gql } from '$lib/api';
   import { ADD_CREDIT, DELETE_MOVIE, MOVIE, REMOVE_CREDIT, UPDATE_MOVIE } from '$lib/queries';
-  import { REGION_LABEL, type Movie, type MovieInput, type Person, type Role } from '$lib/types';
+  import { type Movie, type MovieInput, type Person, type Role } from '$lib/types';
   import { notify } from '$lib/toast.svelte';
   import ArtworkUpload from '$lib/components/ArtworkUpload.svelte';
   import MovieForm from '$lib/components/MovieForm.svelte';
@@ -17,6 +17,8 @@
   let editing = $state(false);
   let removingId = $state<string | null>(null);
   let reload = $state(0);
+  // An unknown or malformed id (e.g. /movies/abc): retrying cannot help, so no "Try again" button.
+  const missing = $derived(error?.type === 'NOT_FOUND' || error?.type === 'BAD_REQUEST');
 
   $effect(() => {
     const movieId = id;
@@ -83,8 +85,8 @@
 
 {#if error}
   <div class="alert" role="alert">
-    <span>{error.type === 'NOT_FOUND' ? 'This movie does not exist. It may have been deleted.' : error.message}</span>
-    {#if error.type !== 'NOT_FOUND'}<button class="btn small" onclick={() => reload++}>Try again</button>{/if}
+    <span>{missing ? 'This movie does not exist. It may have been deleted.' : error.message}</span>
+    {#if !missing}<button class="btn small" onclick={() => reload++}>Try again</button>{/if}
   </div>
 {:else if !movie}
   <div class="layout" aria-busy="true">
@@ -117,9 +119,10 @@
         </div>
       {:else}
         <h1>{movie.title}</h1>
-        <p class="hint">{[movie.releaseYear, movie.region && REGION_LABEL[movie.region], movie.genre].filter(Boolean).join(' · ') || 'No year, region or genre'}</p>
+        <p class="hint">{[movie.releaseYear, movie.genre].filter(Boolean).join(' · ') || 'No year or genre'}</p>
         {#if movie.synopsis}<p class="synopsis">{movie.synopsis}</p>{/if}
         <div class="toolbar">
+          <a class="btn primary" href="/movies/{movie.id}/showtimes">Book tickets</a>
           <button class="btn" onclick={() => (editing = true)}>Edit</button>
           <ConfirmDelete message={`Delete "${movie.title}"? This cannot be undone.`} ondelete={remove} />
         </div>

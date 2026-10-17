@@ -26,6 +26,20 @@ services:
       interval: 5s
       retries: 10
 
+  showtime-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: showtimes
+      POSTGRES_USER: showtimes
+      POSTGRES_PASSWORD: showtimes_dev
+    ports: ["5435:5432"]
+    volumes: ["showtime_db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U showtimes -d showtimes"]
+      interval: 5s
+      retries: 10
+
 volumes:
   movie_db:
   people_db:
+  showtime_db:

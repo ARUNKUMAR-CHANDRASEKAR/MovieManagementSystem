@@ -4,8 +4,6 @@ import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
 import jakarta.persistence.ElementCollection
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -20,8 +18,6 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 
-enum class Region { SINGAPORE, INDIA, HOLLYWOOD }
-
 @Entity
 @Table(name = "movie")
 class Movie(
@@ -29,8 +25,6 @@ class Movie(
     var releaseYear: Int?,
     var genre: String,
     var synopsis: String,
-    @Enumerated(EnumType.STRING)
-    var region: Region? = null,
     var artworkUpdatedAt: Instant? = null,
     var createdAt: Instant,
     var updatedAt: Instant,
@@ -60,7 +54,7 @@ interface MovieRepository : JpaRepository<Movie, Long> {
     // "Containing" escapes % and _ in the search text, so users can search for them literally.
     fun findByTitleContainingIgnoreCase(title: String, pageable: Pageable): Page<Movie>
 
-    fun findByRegionAndTitleContainingIgnoreCase(region: Region, title: String, pageable: Pageable): Page<Movie>
+    fun findByIdInAndTitleContainingIgnoreCase(ids: Collection<Long>, title: String, pageable: Pageable): Page<Movie>
 
     @Query("select m from Movie m join m.personIds p where p = :personId order by m.title")
     fun findByPersonId(personId: Long): List<Movie>

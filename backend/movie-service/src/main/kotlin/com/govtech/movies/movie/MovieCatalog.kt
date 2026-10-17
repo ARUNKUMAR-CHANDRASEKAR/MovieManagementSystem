@@ -15,7 +15,6 @@ data class MovieDraft(
     val releaseYear: Int?,
     val genre: String,
     val synopsis: String,
-    val region: Region? = null,
 )
 
 /** Business rules for movies, their artwork and their credits. */
@@ -28,6 +27,7 @@ class MovieCatalog(
 ) {
     companion object {
         const val MAX_PAGE_SIZE = 100
+        const val MAX_IDS_PER_LOOKUP = 500
         const val MAX_TITLE_LENGTH = 200
         const val MAX_GENRE_LENGTH = 100
         const val MAX_SYNOPSIS_LENGTH = 5000
@@ -36,32 +36,39 @@ class MovieCatalog(
         const val MAX_YEARS_AHEAD = 10 // allow announced, unreleased movies
     }
 
-    /** [region] null lists every region, including movies without one. */
+    /** [ids] empty lists all movies; otherwise only those movies (e.g. the ones showing in a country). */
     @Transactional(readOnly = true)
-    fun list(search: String, region: Region?, page: Int, size: Int): Page<Movie> {
+    fun list(search: String, ids: List<Long>, page: Int, size: Int): Page<Movie> {
         validatePaging(page, size)
+        if (ids.size > MAX_IDS_PER_LOOKUP) throw InvalidInputException("At most $MAX_IDS_PER_LOOKUP ids per lookup")
         val sort = Sort.by(Sort.Order.asc("title").ignoreCase(), Sort.Order.asc("id"))
         val pageable = PageRequest.of(page, size, sort)
         val text = search.trim()
-        return if (region == null) {
+        return if (ids.isEmpty()) {
             movies.findByTitleContainingIgnoreCase(text, pageable)
         } else {
-            movies.findByRegionAndTitleContainingIgnoreCase(region, text, pageable)
+            movies.findByIdInAndTitleContainingIgnoreCase(ids, text, pageable)
         }
     }
 
     @Transactional(readOnly = true)
     fun get(id: Long): Movie = movies.findById(id).orElseThrow { NotFoundException("Movie $id not found") }
 
+    /** Returns the movies that exist, in the order of [ids]. Unknown ids are skipped. */
+    @Transactional(readOnly = true)
+    fun getByIds(ids: List<Long>): List<Movie> {
+        val distinct = ids.distinct()
+        if (distinct.size > MAX_IDS_PER_LOOKUP) throw InvalidInputException("At most $MAX_IDS_PER_LOOKUP ids per lookup")
+        val byId = movies.findAllById(distinct).associateBy { it.id }
+        return distinct.mapNotNull { byId[it] }
+    }
+
     @Transactional
     fun create(draft: MovieDraft): Movie {
         val clean = validate(draft)
         val now = clock.instant()
         return movies.save(
-            Movie(
-                clean.title, clean.releaseYear, clean.genre, clean.synopsis, clean.region,
-                createdAt = now, updatedAt = now,
-            ),
+            Movie(clean.title, clean.releaseYear, clean.genre, clean.synopsis, createdAt = now, updatedAt = now),
         )
     }
 
@@ -73,7 +80,6 @@ class MovieCatalog(
             releaseYear = clean.releaseYear
             genre = clean.genre
             synopsis = clean.synopsis
-            region = clean.region
             updatedAt = clock.instant()
         }
     }

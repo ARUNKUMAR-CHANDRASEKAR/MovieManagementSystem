@@ -19,6 +19,8 @@
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
+    // A fast double-click fires submit twice before the disabled button re-renders.
+    if (saving) return;
     const result = validatePerson(values);
     errors = result.errors;
     if (!result.input) return;

@@ -7,7 +7,6 @@ const movie = (overrides = {}) => ({
   releaseYear: '2022',
   genre: 'Action',
   synopsis: '',
-  region: '' as const,
   ...overrides
 });
 
@@ -15,11 +14,7 @@ describe('validateMovie', () => {
   it('returns trimmed input when valid', () => {
     const { input, errors } = validateMovie(movie({ title: '  Leo  ', genre: ' Thriller ', synopsis: ' x ' }), now);
     expect(errors).toEqual({});
-    expect(input).toEqual({ title: 'Leo', releaseYear: 2022, genre: 'Thriller', synopsis: 'x', region: null });
-  });
-
-  it('passes the chosen region through', () => {
-    expect(validateMovie({ ...movie(), region: 'SINGAPORE' }, now).input?.region).toBe('SINGAPORE');
+    expect(input).toEqual({ title: 'Leo', releaseYear: 2022, genre: 'Thriller', synopsis: 'x' });
   });
 
   it('treats an empty year as no year', () => {

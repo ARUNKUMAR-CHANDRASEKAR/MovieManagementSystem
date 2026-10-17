@@ -20,3 +20,7 @@ movie-service:
 people-service:
   host: ${PEOPLE_GRPC_HOST:localhost}
   port: ${PEOPLE_GRPC_PORT:9092}
+
+showtime-service:
+  host: ${SHOWTIME_GRPC_HOST:localhost}
+  port: ${SHOWTIME_GRPC_PORT:9093}

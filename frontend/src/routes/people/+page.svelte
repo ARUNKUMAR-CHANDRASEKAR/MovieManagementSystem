@@ -21,6 +21,7 @@
 
   let search = $state(page.url.searchParams.get('q') ?? '');
   let result = $state<Page<Person> | null>(null);
+  const pageCount = $derived(result ? Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)) : 1);
   let loading = $state(true);
   let error = $state('');
   let reload = $state(0);
@@ -87,6 +88,12 @@
       <li style="padding: 0.9rem"><div class="skeleton" style="height: 1.2rem; width: {40 + ((i * 17) % 40)}%"></div></li>
     {/each}
   </ul>
+{:else if result.items.length === 0 && result.totalCount > 0}
+  <!-- The page number in the URL is past the last page, e.g. ?page=99999. -->
+  <div class="empty card" role="alert">
+    <p><strong>Page not found.</strong> There {pageCount === 1 ? 'is only 1 page' : `are only ${pageCount} pages`} of people.</p>
+    <button class="btn primary" onclick={() => navigate(query, role, 0)}>Go to first page</button>
+  </div>
 {:else if result.items.length === 0}
   <div class="empty card">
     <p>{query ? `No ${noun === 'person' ? 'people' : noun + 's'} match "${query}".` : `No ${noun === 'person' ? 'people' : noun + 's'} yet.`}</p>

@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: showtime-service
+  datasource:
+    url: ${SHOWTIME_DB_URL:jdbc:postgresql://localhost:5435/showtimes}
+    username: ${SHOWTIME_DB_USER:showtimes}
+    password: ${SHOWTIME_DB_PASSWORD:showtimes_dev}
+  flyway:
+    # Own folder per service, so the services' migrations never mix on one classpath (integration tests).
+    locations: classpath:db/migration/showtime
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+grpc:
+  port: ${SHOWTIME_GRPC_PORT:9093}
+  max-message-bytes: 4194304
+
+movie-service:
+  host: ${MOVIE_GRPC_HOST:localhost}
+  port: ${MOVIE_GRPC_PORT:9091}

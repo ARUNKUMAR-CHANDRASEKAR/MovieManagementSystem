@@ -15,6 +15,8 @@
   let error = $state<ApiError | null>(null);
   let editing = $state(false);
   let reload = $state(0);
+  // An unknown or malformed id (e.g. /people/abc): retrying cannot help, so no "Try again" button.
+  const missing = $derived(error?.type === 'NOT_FOUND' || error?.type === 'BAD_REQUEST');
 
   $effect(() => {
     const personId = id;
@@ -62,8 +64,8 @@
 
 {#if error}
   <div class="alert" role="alert">
-    <span>{error.type === 'NOT_FOUND' ? 'This person does not exist. They may have been deleted.' : error.message}</span>
-    {#if error.type !== 'NOT_FOUND'}<button class="btn small" onclick={() => reload++}>Try again</button>{/if}
+    <span>{missing ? 'This person does not exist. They may have been deleted.' : error.message}</span>
+    {#if !missing}<button class="btn small" onclick={() => reload++}>Try again</button>{/if}
   </div>
 {:else if !person}
   <div style="display: grid; gap: 0.75rem; margin-top: 1rem" aria-busy="true">

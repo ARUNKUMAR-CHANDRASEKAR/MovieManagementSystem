@@ -11,6 +11,8 @@ import "google/protobuf/empty.proto";
 service MovieService {
   rpc ListMovies (ListMoviesRequest) returns (MoviePage);
   rpc GetMovie (MovieIdRequest) returns (Movie);
+  // Movies that exist, in the order of the ids. Unknown ids are skipped.
+  rpc GetMoviesByIds (MovieIdsRequest) returns (MovieList);
   rpc CreateMovie (MovieInput) returns (Movie);
   rpc UpdateMovie (UpdateMovieRequest) returns (Movie);
   rpc DeleteMovie (MovieIdRequest) returns (google.protobuf.Empty);
@@ -26,13 +28,6 @@ service MovieService {
   rpc DeleteCreditsForPerson (PersonRef) returns (google.protobuf.Empty);
 }
 
-enum Region {
-  REGION_UNSPECIFIED = 0;
-  SINGAPORE = 1;
-  INDIA = 2;
-  HOLLYWOOD = 3;
-}
-
 message Movie {
   int64 id = 1;
   string title = 2;
@@ -42,7 +37,7 @@ message Movie {
   // 0 when the movie has no artwork. Also used by clients as a cache-busting version.
   int64 artwork_updated_at_ms = 6;
   repeated int64 person_ids = 7;
-  Region region = 8; // REGION_UNSPECIFIED when not set
+  reserved 8; // was region; never reuse the number
 }
 
 message MovieInput {
@@ -50,17 +45,19 @@ message MovieInput {
   optional int32 release_year = 2;
   string genre = 3;
   string synopsis = 4;
-  Region region = 5; // REGION_UNSPECIFIED = no region
+  reserved 5; // was region
 }
 
 message MovieIdRequest { int64 id = 1; }
+message MovieIdsRequest { repeated int64 ids = 1; }
 message UpdateMovieRequest { int64 id = 1; MovieInput movie = 2; }
 
 message ListMoviesRequest {
   string search = 1; // matched against the title, case-insensitive; empty = all
   int32 page = 2;    // zero-based
   int32 size = 3;    // 1..100
-  Region region = 4; // REGION_UNSPECIFIED = all regions
+  reserved 4; // was region
+  repeated int64 ids = 5; // only these movies; empty = all movies
 }
 
 message MoviePage {

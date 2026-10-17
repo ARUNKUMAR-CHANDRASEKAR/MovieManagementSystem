@@ -1,10 +1,10 @@
 package com.govtech.movies.movie
 
+import com.govtech.movies.grpc.movie.CreditRequest
 import com.govtech.movies.grpc.movie.MovieIdRequest
 import com.govtech.movies.grpc.movie.MovieInput
 import com.govtech.movies.grpc.movie.MovieServiceGrpc
 import com.govtech.movies.grpc.movie.ListMoviesRequest
-import com.govtech.movies.grpc.movie.Region as RegionMessage
 import io.grpc.ManagedChannel
 import io.grpc.Server
 import io.grpc.Status
@@ -17,8 +17,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import java.time.Instant
@@ -39,7 +41,7 @@ class MovieGrpcEndpointTest {
     }
 
     private fun movie(year: Int?, artworkAt: Instant?) =
-        Movie("Leo", year, "Action", "", Region.INDIA, artworkAt, Instant.EPOCH, Instant.EPOCH, id = 5).apply { personIds.addAll(listOf(9, 2)) }
+        Movie("Leo", year, "Action", "", artworkAt, Instant.EPOCH, Instant.EPOCH, id = 5).apply { personIds.addAll(listOf(9, 2)) }
 
     @Test
     fun `maps a movie to a message`() {
@@ -51,7 +53,6 @@ class MovieGrpcEndpointTest {
         assertEquals(2023, reply.releaseYear)
         assertEquals(1234, reply.artworkUpdatedAtMs)
         assertEquals(listOf(2L, 9L), reply.personIdsList)
-        assertEquals(RegionMessage.INDIA, reply.region)
     }
 
     @Test
@@ -72,25 +73,17 @@ class MovieGrpcEndpointTest {
 
     @Test
     fun `list returns page metadata`() {
-        whenever(catalog.list("le", null, 1, 2)).thenReturn(PageImpl(listOf(movie(null, null)), PageRequest.of(1, 2), 5))
+        whenever(catalog.list("le", emptyList(), 1, 2)).thenReturn(PageImpl(listOf(movie(null, null)), PageRequest.of(1, 2), 5))
         val reply = stub.listMovies(ListMoviesRequest.newBuilder().setSearch("le").setPage(1).setSize(2).build())
         assertEquals(5, reply.totalCount)
         assertEquals(1, reply.moviesCount)
     }
 
     @Test
-    fun `region filter is passed to the catalog`() {
-        whenever(catalog.list("", Region.SINGAPORE, 0, 5)).thenReturn(PageImpl(emptyList()))
-        stub.listMovies(ListMoviesRequest.newBuilder().setRegion(RegionMessage.SINGAPORE).setSize(5).build())
-        verify(catalog).list("", Region.SINGAPORE, 0, 5)
-    }
-
-    @Test
-    fun `region mapping covers every proto value`() {
-        assertEquals(null, RegionMessage.REGION_UNSPECIFIED.toRegion())
-        assertEquals(null, RegionMessage.UNRECOGNIZED.toRegion())
-        Region.entries.forEach { assertEquals(it, it.toMessage().toRegion()) }
-        assertEquals(RegionMessage.REGION_UNSPECIFIED, (null as Region?).toMessage())
+    fun `id filter is passed to the catalog`() {
+        whenever(catalog.list("", listOf(4L, 2L), 0, 5)).thenReturn(PageImpl(emptyList()))
+        stub.listMovies(ListMoviesRequest.newBuilder().addAllIds(listOf(4, 2)).setSize(5).build())
+        verify(catalog).list("", listOf(4L, 2L), 0, 5)
     }
 
     @Test
@@ -123,5 +116,17 @@ class MovieGrpcEndpointTest {
             stub.addCredit(com.govtech.movies.grpc.movie.CreditRequest.newBuilder().setMovieId(1).setPersonId(2).build())
         }
         assertEquals(Status.Code.UNAVAILABLE, e.status.code)
+    }
+
+    @Test
+    fun `adding a credit that another request saved at the same moment still succeeds`() {
+        whenever(catalog.addCredit(5, 9))
+            .thenThrow(DataIntegrityViolationException("duplicate key value violates unique constraint"))
+            .thenReturn(movie(2023, null))
+
+        val reply = stub.addCredit(CreditRequest.newBuilder().setMovieId(5).setPersonId(9).build())
+
+        assertEquals(listOf(2L, 9L), reply.personIdsList)
+        verify(catalog, times(2)).addCredit(5, 9)
     }
 }

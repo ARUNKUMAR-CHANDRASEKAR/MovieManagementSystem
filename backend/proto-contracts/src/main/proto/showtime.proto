@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package showtimes.v1;
+
+option java_multiple_files = true;
+option java_package = "com.govtech.movies.grpc.showtime";
+
+// Owned by showtime-service: theatres, shows and seat bookings. Called by api-gateway.
+// Movies are owned by movie-service; shows refer to them by movie_id.
+service ShowtimeService {
+  rpc ListTheatres (CountryRequest) returns (TheatreList);
+  // Distinct ids of movies that have upcoming shows in a country.
+  rpc ListMovieIdsShowing (CountryRequest) returns (MovieIdList);
+  // Upcoming shows of one movie, sorted by location then time.
+  rpc ListShowtimes (ListShowtimesRequest) returns (ShowtimeList);
+  // Includes sold_seats.
+  rpc GetShowtime (ShowtimeIdRequest) returns (Showtime);
+  rpc CreateShowtime (CreateShowtimeRequest) returns (Showtime);
+  // Sample booking without payment. Fails if any seat is already sold.
+  rpc BookSeats (BookSeatsRequest) returns (Booking);
+}
+
+enum Country {
+  COUNTRY_UNSPECIFIED = 0;
+  SINGAPORE = 1;
+  MALAYSIA = 2;
+}
+
+message Theatre {
+  int64 id = 1;
+  string name = 2;
+  Country country = 3;
+  string location = 4;   // area, e.g. "Orchard"
+  int32 seat_rows = 5;   // rows are lettered A, B, C…
+  int32 seats_per_row = 6;
+}
+
+message Showtime {
+  int64 id = 1;
+  int64 movie_id = 2;
+  Theatre theatre = 3;
+  int64 starts_at_epoch_ms = 4;
+  int32 price_cents = 5;     // per seat
+  string currency = 6;       // "SGD" or "MYR"
+  int32 seats_left = 7;
+  repeated string sold_seats = 8; // only filled by GetShowtime and BookSeats
+}
+
+message CountryRequest { Country country = 1; } // COUNTRY_UNSPECIFIED = all countries
+message TheatreList { repeated Theatre theatres = 1; }
+message MovieIdList { repeated int64 movie_ids = 1; }
+
+message ListShowtimesRequest {
+  int64 movie_id = 1;
+  Country country = 2; // COUNTRY_UNSPECIFIED = all countries
+}
+
+message ShowtimeList { repeated Showtime showtimes = 1; }
+message ShowtimeIdRequest { int64 id = 1; }
+
+message CreateShowtimeRequest {
+  int64 movie_id = 1;
+  int64 theatre_id = 2;
+  int64 starts_at_epoch_ms = 3;
+  int32 price_cents = 4;
+}
+
+message BookSeatsRequest {
+  int64 showtime_id = 1;
+  repeated string seats = 2; // e.g. "A1", "H12"
+  string customer_name = 3;
+}
+
+message Booking {
+  int64 id = 1;
+  string reference = 2;      // e.g. "BK-000042"
+  Showtime showtime = 3;
+  repeated string seats = 4;
+  int32 total_cents = 5;
+  string currency = 6;
+  string customer_name = 7;
+}
