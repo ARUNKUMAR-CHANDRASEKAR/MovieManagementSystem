@@ -1,7 +1,5 @@
 export type Role = 'CAST' | 'CREATOR';
 
-export type Region = 'SINGAPORE' | 'INDIA' | 'HOLLYWOOD';
-
 export interface Person {
   id: string;
   name: string;
@@ -16,7 +14,6 @@ export interface Movie {
   releaseYear: number | null;
   genre: string;
   synopsis: string;
-  region: Region | null;
   artworkUrl: string | null;
   people?: Person[];
 }
@@ -33,7 +30,6 @@ export interface MovieInput {
   releaseYear: number | null;
   genre: string;
   synopsis: string;
-  region: Region | null;
 }
 
 export interface PersonInput {
@@ -41,7 +37,5 @@ export interface PersonInput {
   role: Role;
   bio: string;
 }
-
-export const REGION_LABEL: Record<Region, string> = { SINGAPORE: 'Singapore', INDIA: 'India', HOLLYWOOD: 'Hollywood' };
 
 export const ROLE_LABEL: Record<Role, string> = { CAST: 'Cast', CREATOR: 'Creator' };

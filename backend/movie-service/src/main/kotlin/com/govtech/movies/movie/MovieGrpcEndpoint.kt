@@ -4,17 +4,18 @@ import com.govtech.movies.grpc.movie.Artwork
 import com.govtech.movies.grpc.movie.CreditRequest
 import com.govtech.movies.grpc.movie.ListMoviesRequest
 import com.govtech.movies.grpc.movie.MovieIdRequest
+import com.govtech.movies.grpc.movie.MovieIdsRequest
 import com.govtech.movies.grpc.movie.MovieInput
 import com.govtech.movies.grpc.movie.MovieList
 import com.govtech.movies.grpc.movie.MoviePage
 import com.govtech.movies.grpc.movie.MovieServiceGrpc
 import com.govtech.movies.grpc.movie.PersonRef
-import com.govtech.movies.grpc.movie.Region as RegionMessage
 import com.govtech.movies.grpc.movie.UpdateMovieRequest
 import com.govtech.movies.grpc.movie.UploadArtworkRequest
 import com.google.protobuf.ByteString
 import com.google.protobuf.Empty
 import io.grpc.stub.StreamObserver
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import com.govtech.movies.grpc.movie.Movie as MovieMessage
 
@@ -23,7 +24,7 @@ import com.govtech.movies.grpc.movie.Movie as MovieMessage
 class MovieGrpcEndpoint(private val catalog: MovieCatalog) : MovieServiceGrpc.MovieServiceImplBase() {
 
     override fun listMovies(request: ListMoviesRequest, observer: StreamObserver<MoviePage>) = respond(observer) {
-        val page = catalog.list(request.search, request.region.toRegion(), request.page, request.size)
+        val page = catalog.list(request.search, request.idsList, request.page, request.size)
         MoviePage.newBuilder()
             .addAllMovies(page.content.map { it.toMessage() })
             .setTotalCount(page.totalElements)
@@ -34,6 +35,10 @@ class MovieGrpcEndpoint(private val catalog: MovieCatalog) : MovieServiceGrpc.Mo
 
     override fun getMovie(request: MovieIdRequest, observer: StreamObserver<MovieMessage>) = respond(observer) {
         catalog.get(request.id).toMessage()
+    }
+
+    override fun getMoviesByIds(request: MovieIdsRequest, observer: StreamObserver<MovieList>) = respond(observer) {
+        MovieList.newBuilder().addAllMovies(catalog.getByIds(request.idsList).map { it.toMessage() }).build()
     }
 
     override fun createMovie(request: MovieInput, observer: StreamObserver<MovieMessage>) = respond(observer) {
@@ -58,7 +63,18 @@ class MovieGrpcEndpoint(private val catalog: MovieCatalog) : MovieServiceGrpc.Mo
     }
 
     override fun addCredit(request: CreditRequest, observer: StreamObserver<MovieMessage>) = respond(observer) {
-        catalog.addCredit(request.movieId, request.personId).toMessage()
+        try {
+            catalog.addCredit(request.movieId, request.personId).toMessage()
+        } catch (e: DataIntegrityViolationException) {
+            // Duplicate PK: another request added same person first. Credit exists, retry reads it.
+            // FK violations caught by get(movieId) validation, so only PK duplicates reach here.
+            val isPkDuplicate = e.message?.contains("movie_credit_pkey") == true || e.message?.contains("duplicate key") == true
+            if (isPkDuplicate) {
+                catalog.addCredit(request.movieId, request.personId).toMessage()
+            } else {
+                throw e
+            }
+        }
     }
 
     override fun removeCredit(request: CreditRequest, observer: StreamObserver<MovieMessage>) = respond(observer) {
@@ -83,7 +99,6 @@ fun Movie.toMessage(): MovieMessage {
         .setSynopsis(synopsis)
         .setArtworkUpdatedAtMs(artworkUpdatedAt?.toEpochMilli() ?: 0)
         .addAllPersonIds(personIds.sorted())
-        .setRegion(region.toMessage())
     releaseYear?.let { builder.setReleaseYear(it) }
     return builder.build()
 }
@@ -93,20 +108,5 @@ fun MovieInput.toDraft() = MovieDraft(
     releaseYear = if (hasReleaseYear()) releaseYear else null,
     genre = genre,
     synopsis = synopsis,
-    region = region.toRegion(),
 )
 
-/** REGION_UNSPECIFIED (and unknown values from newer clients) map to null. */
-fun RegionMessage.toRegion(): Region? = when (this) {
-    RegionMessage.SINGAPORE -> Region.SINGAPORE
-    RegionMessage.INDIA -> Region.INDIA
-    RegionMessage.HOLLYWOOD -> Region.HOLLYWOOD
-    else -> null
-}
-
-fun Region?.toMessage(): RegionMessage = when (this) {
-    Region.SINGAPORE -> RegionMessage.SINGAPORE
-    Region.INDIA -> RegionMessage.INDIA
-    Region.HOLLYWOOD -> RegionMessage.HOLLYWOOD
-    null -> RegionMessage.REGION_UNSPECIFIED
-}

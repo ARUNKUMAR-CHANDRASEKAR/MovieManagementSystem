@@ -22,10 +22,12 @@ flowchart LR
         GW[api-gateway :8080<br/>GraphQL + artwork GET]
         MS[movie-service<br/>gRPC :9091]
         PS[people-service<br/>gRPC :9092]
+        SS[showtime-service<br/>gRPC :9093]
     end
 
     MDB[(PostgreSQL movies :5433<br/>movie, movie_artwork, movie_credit)]
     PDB[(PostgreSQL people :5434<br/>person)]
+    SDB[(PostgreSQL showtimes :5435<br/>theatre, showtime, booking, booked_seat)]
 
     User --> UI
     UI -- "POST /graphql (JSON)" --> Vite
@@ -33,10 +35,13 @@ flowchart LR
     Vite --> GW
     GW -- gRPC --> MS
     GW -- gRPC --> PS
+    GW -- gRPC --> SS
     MS -- "gRPC: GetPerson<br/>(check person exists)" --> PS
     PS -- "gRPC: DeleteCreditsForPerson<br/>(before deleting a person)" --> MS
     MS -- JPA / Flyway --> MDB
+    SS -- "gRPC: GetMovie<br/>(check movie exists before scheduling)" --> MS
     PS -- JPA / Flyway --> PDB
+    SS -- JPA / Flyway --> SDB
 ```
 
 ## 2. Request handling inside a service
@@ -45,12 +50,12 @@ Each backend layer has one job.
 
 ```mermaid
 flowchart TD
-    A[GraphQL request] --> B[Gateway controller<br/>MovieController / PersonController]
+    A[GraphQL request] --> B[Gateway controller<br/>MovieController / PersonController / ShowtimeController]
     B --> C{Valid id and base64?}
     C -- no --> E1[BadInputException]
     C -- yes --> D[gRPC blocking stub<br/>5 s deadline]
-    D --> F[Service gRPC endpoint<br/>MovieGrpcEndpoint / PeopleGrpcEndpoint]
-    F --> G[Domain service<br/>MovieCatalog / PersonDirectory]
+    D --> F[Service gRPC endpoint<br/>MovieGrpcEndpoint / PeopleGrpcEndpoint / ShowtimeGrpcEndpoint]
+    F --> G[Domain service<br/>MovieCatalog / PersonDirectory / ShowtimeCatalog]
     G --> H{Business rules OK?}
     H -- no --> E2[InvalidInputException / NotFoundException]
     H -- yes --> I[Spring Data repository]
@@ -65,7 +70,45 @@ flowchart TD
     O --> P[Error JSON with a user-friendly message]
 ```
 
-## 3. Sequence: list movies with cast (one batched people call)
+## 3. User journey: search by location and book seats
+
+What the user sees, page by page.
+
+```mermaid
+flowchart TD
+    A[Movies page<br/>tabs: All / Singapore / Malaysia] -->|choose Singapore| B[Movies showing in Singapore]
+    N[Now Showing page<br/>Search by location: Singapore / Malaysia] --> B
+    M[Movie page<br/>Book tickets button] --> C
+    B -->|choose Jailer| C[Jailer showtimes in Singapore<br/>switch country on the same page]
+    C --> D[Locations, one cinema each<br/>Orchard · Yishun · Tampines · Bishan]
+    D --> E[Days and show times<br/>with seats left or Sold out]
+    E -->|choose 5:30 pm at Orchard| F[Seat map<br/>Available · Selected · Sold]
+    F -->|pick up to 8 seats| G[Summary<br/>seats, price per seat, total]
+    G -->|name + Proceed to book| H{All seats still free?}
+    H -- yes --> I[Confirmation<br/>reference BK-000337, no payment]
+    H -- no --> J[Message: already sold<br/>seat map refreshes, other picks kept]
+    J --> F
+    I -->|Book more seats| F
+```
+
+## 4. Seat states on the seat map
+
+```mermaid
+stateDiagram-v2
+    [*] --> Available
+    Available --> Selected: user taps seat
+    Selected --> Available: user taps again
+    Selected --> Sold: booked (by this user, or by someone else first)
+    Available --> Sold: someone else books it
+    Sold --> [*]
+    note right of Sold
+        Grey and disabled.
+        The database primary key (showtime_id, seat)
+        makes a second sale impossible.
+    end note
+```
+
+## 5. Sequence: list movies with cast (one batched people call)
 
 ```mermaid
 sequenceDiagram
@@ -74,16 +117,21 @@ sequenceDiagram
     participant UI as SvelteKit
     participant GW as api-gateway
     participant MS as movie-service
+    participant SS as showtime-service
     participant PS as people-service
     participant MDB as movies DB
     participant PDB as people DB
 
     U->>UI: Type in search box
     Note over UI: Debounce 300 ms.<br/>Abort the older request.<br/>Show "Searching…"
-    UI->>GW: POST /graphql movies(search, region, page, size)
-    GW->>MS: ListMovies(search, region, page, size)
+    UI->>GW: POST /graphql movies(search, showingIn, page, size)
+    opt showingIn set (location tab)
+        GW->>SS: ListMovieIdsShowing(country)
+        SS-->>GW: movie ids (none → empty page, stop)
+    end
+    GW->>MS: ListMovies(search, ids, page, size)
     MS->>MS: Validate page ≥ 0, size 1..100
-    MS->>MDB: SELECT … WHERE lower(title) LIKE … [AND region = ?] ORDER BY title
+    MS->>MDB: SELECT … WHERE lower(title) LIKE … [AND id IN (ids)] ORDER BY title
     MDB-->>MS: Movies + credit person ids
     MS-->>GW: MoviePage
     opt Query asks for Movie.people
@@ -97,7 +145,7 @@ sequenceDiagram
     UI-->>U: Movie grid + "N movies matching …"
 ```
 
-## 4. Sequence: upload artwork with progress
+## 6. Sequence: upload artwork with progress
 
 ```mermaid
 sequenceDiagram
@@ -144,7 +192,7 @@ sequenceDiagram
     GW-->>UI: Image bytes, Cache-Control immutable, nosniff
 ```
 
-## 5. Sequence: add a person to a movie (service-to-service gRPC)
+## 7. Sequence: add a person to a movie (service-to-service gRPC)
 
 ```mermaid
 sequenceDiagram
@@ -181,7 +229,7 @@ sequenceDiagram
     end
 ```
 
-## 6. Sequence: delete a person (keep data consistent across databases)
+## 8. Sequence: delete a person (keep data consistent across databases)
 
 ```mermaid
 sequenceDiagram
@@ -214,5 +262,57 @@ sequenceDiagram
         PS-->>GW: UNAVAILABLE
         GW-->>UI: "A backend service is unavailable…"
         UI-->>U: Error toast, person kept
+    end
+```
+
+## 9. Sequence: search by location and book seats
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant UI as SvelteKit
+    participant GW as api-gateway
+    participant SS as showtime-service
+    participant MS as movie-service
+    participant SDB as showtimes DB
+
+    U->>UI: Now Showing, location = Singapore
+    UI->>GW: moviesShowing(country: SINGAPORE)
+    GW->>SS: ListMovieIdsShowing(SINGAPORE)
+    SS->>SDB: distinct movie_id of upcoming shows in Singapore theatres
+    SS-->>GW: movie ids
+    GW->>MS: GetMoviesByIds(ids)
+    MS-->>GW: movies
+    GW-->>UI: movies (sorted by title)
+
+    U->>UI: Choose Jailer
+    UI->>GW: showtimes(movieId, SINGAPORE)
+    GW->>SS: ListShowtimes
+    SS-->>GW: shows with theatre and seats left
+    UI-->>U: Orchard, Yishun, Tampines, Bishan → days → times (local time zone)
+
+    U->>UI: Choose 5:30 pm at Orchard
+    UI->>GW: showtime(id) { soldSeats theatre { seatRows seatsPerRow } }
+    GW->>SS: GetShowtime
+    UI-->>U: Seat map: Available / Selected / Sold
+
+    U->>UI: Pick E6, E7, enter name, Proceed to book
+    UI->>GW: bookSeats(showtimeId, [E6, E7], name)
+    GW->>SS: BookSeats
+    SS->>SS: Check name, 1–8 seats, seats exist, show not started, not already sold
+    SS->>SDB: BEGIN, INSERT booking, INSERT booked_seat × 2
+    alt All seats free
+        SS->>SDB: COMMIT
+        SS-->>GW: Booking BK-000337, total
+        GW-->>UI: Booking
+        UI-->>U: Confirmation with reference
+    else A seat was sold a moment ago
+        SDB--xSS: Primary key (showtime_id, seat) violated
+        SS->>SDB: ROLLBACK (no seat booked)
+        SS-->>GW: INVALID_ARGUMENT "Some of these seats were just booked…"
+        GW-->>UI: BAD_REQUEST
+        UI->>GW: Reload seat map
+        UI-->>U: Message, and the seat now shows as Sold
     end
 ```

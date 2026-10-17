@@ -4,7 +4,9 @@ import com.govtech.movies.grpc.movie.CreditRequest
 import com.govtech.movies.grpc.movie.ListMoviesRequest
 import com.govtech.movies.grpc.movie.MovieIdRequest
 import com.govtech.movies.grpc.movie.MovieInput
-import com.govtech.movies.grpc.movie.Region
+import com.govtech.movies.grpc.showtime.Country
+import com.govtech.movies.grpc.showtime.CountryRequest
+import com.govtech.movies.grpc.showtime.ListShowtimesRequest
 import com.govtech.movies.grpc.movie.UpdateMovieRequest
 import com.govtech.movies.grpc.movie.UploadArtworkRequest
 import com.govtech.movies.grpc.people.PersonIdsRequest
@@ -21,7 +23,6 @@ data class MovieInputArg(
     val releaseYear: Int?,
     val genre: String?,
     val synopsis: String?,
-    val region: Region?,
 )
 
 @Controller
@@ -30,13 +31,21 @@ class MovieController(private val grpc: GrpcClients) {
     @QueryMapping
     fun movies(
         @Argument search: String?,
-        @Argument region: Region?,
+        @Argument showingIn: Country?,
         @Argument page: Int,
         @Argument size: Int,
     ): PageView<MovieView> {
+        // showingIn: showtime-service knows which movies are showing there; movie-service then
+        // searches and pages only those. No movies showing means an empty page, not "all movies".
+        val ids = if (showingIn == null) {
+            emptyList()
+        } else {
+            grpc.showtimes().listMovieIdsShowing(CountryRequest.newBuilder().setCountry(showingIn).build()).movieIdsList
+        }
+        if (showingIn != null && ids.isEmpty()) return PageView(emptyList(), 0, page, size)
         val request = ListMoviesRequest.newBuilder()
             .setSearch(search.orEmpty())
-            .setRegion(region ?: Region.REGION_UNSPECIFIED)
+            .addAllIds(ids)
             .setPage(page)
             .setSize(size)
             .build()
@@ -58,7 +67,17 @@ class MovieController(private val grpc: GrpcClients) {
 
     @MutationMapping
     fun deleteMovie(@Argument id: String): Boolean {
-        grpc.movies().deleteMovie(movieId(id))
+        val request = movieId(id)
+        // ponytail: race between check and delete possible in distributed system, accept it
+        val upcoming = grpc.showtimes().listShowtimes(
+            ListShowtimesRequest.newBuilder().setMovieId(request.id).setCountry(Country.COUNTRY_UNSPECIFIED).build(),
+        ).showtimesCount
+        if (upcoming > 0) {
+            val shows = if (upcoming == 1) "1 upcoming show and cannot be deleted until it is over"
+            else "$upcoming upcoming shows and cannot be deleted until they are over"
+            throw BadInputException("This movie has $shows")
+        }
+        grpc.movies().deleteMovie(request)
         return true
     }
 
@@ -105,7 +124,6 @@ class MovieController(private val grpc: GrpcClients) {
             .setTitle(title)
             .setGenre(genre.orEmpty())
             .setSynopsis(synopsis.orEmpty())
-            .setRegion(region ?: Region.REGION_UNSPECIFIED)
         releaseYear?.let { builder.setReleaseYear(it) }
         return builder.build()
     }

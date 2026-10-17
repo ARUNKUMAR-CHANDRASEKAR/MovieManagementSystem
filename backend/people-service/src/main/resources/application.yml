@@ -5,6 +5,9 @@ spring:
     url: ${PEOPLE_DB_URL:jdbc:postgresql://localhost:5434/people}
     username: ${PEOPLE_DB_USER:people}
     password: ${PEOPLE_DB_PASSWORD:people_dev}
+  flyway:
+    # Own folder per service, so the two services' migrations never mix on one classpath (integration tests).
+    locations: classpath:db/migration/people
   jpa:
     open-in-view: false
     hibernate:

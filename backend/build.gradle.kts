@@ -18,6 +18,8 @@ allprojects {
 // Shared versions, read by the sub-projects as rootProject.extra["..."].
 extra["grpcVersion"] = "1.68.1"
 extra["protobufVersion"] = "3.25.5"
+// Overrides the version from Spring Boot's BOM: 1.21.4 is the first that works with Docker Engine 29.
+extra["testcontainers.version"] = "1.21.4"
 
 subprojects {
     plugins.withId("org.jetbrains.kotlin.jvm") {

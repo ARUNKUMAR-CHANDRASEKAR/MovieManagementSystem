@@ -55,7 +55,7 @@ class MovieCatalogTest {
             val pageable = argumentCaptor<Pageable>()
             whenever(movies.findByTitleContainingIgnoreCase(any(), pageable.capture())).thenReturn(PageImpl(listOf(movie())))
 
-            val result = catalog.list("  vik  ", null, 2, 10)
+            val result = catalog.list("  vik  ", emptyList(), 2, 10)
 
             verify(movies).findByTitleContainingIgnoreCase(org.mockito.kotlin.eq("vik"), any())
             assertEquals(2, pageable.firstValue.pageNumber)
@@ -67,42 +67,63 @@ class MovieCatalogTest {
         @Test
         fun `empty search lists everything`() {
             whenever(movies.findByTitleContainingIgnoreCase(any(), any())).thenReturn(PageImpl(emptyList()))
-            catalog.list("", null, 0, 1)
+            catalog.list("", emptyList(), 0, 1)
             verify(movies).findByTitleContainingIgnoreCase(org.mockito.kotlin.eq(""), any())
         }
 
         @Test
-        fun `without region lists every region`() {
+        fun `no ids lists every movie`() {
             whenever(movies.findByTitleContainingIgnoreCase(any(), any())).thenReturn(PageImpl(emptyList()))
-            catalog.list("", null, 0, 10)
-            verify(movies, never()).findByRegionAndTitleContainingIgnoreCase(any(), any(), any())
+            catalog.list("", emptyList(), 0, 10)
+            verify(movies, never()).findByIdInAndTitleContainingIgnoreCase(any(), any(), any())
         }
 
         @Test
-        fun `with region filters by region and search`() {
-            whenever(movies.findByRegionAndTitleContainingIgnoreCase(any(), any(), any())).thenReturn(PageImpl(emptyList()))
-            catalog.list(" leo ", Region.INDIA, 0, 10)
-            verify(movies).findByRegionAndTitleContainingIgnoreCase(org.mockito.kotlin.eq(Region.INDIA), org.mockito.kotlin.eq("leo"), any())
+        fun `ids limit the search to those movies`() {
+            whenever(movies.findByIdInAndTitleContainingIgnoreCase(any(), any(), any())).thenReturn(PageImpl(emptyList()))
+            catalog.list(" leo ", listOf(3, 9), 0, 10)
+            verify(movies).findByIdInAndTitleContainingIgnoreCase(org.mockito.kotlin.eq(listOf(3L, 9L)), org.mockito.kotlin.eq("leo"), any())
             verify(movies, never()).findByTitleContainingIgnoreCase(any(), any())
         }
 
         @Test
+        fun `rejects more than 500 ids`() {
+            assertThrows<InvalidInputException> { catalog.list("", (1L..501L).toList(), 0, 10) }
+        }
+
+        @Test
         fun `rejects negative page`() {
-            val e = assertThrows<InvalidInputException> { catalog.list("", null, -1, 10) }
+            val e = assertThrows<InvalidInputException> { catalog.list("", emptyList(), -1, 10) }
             assertEquals("Page must be 0 or more", e.message)
         }
 
         @ParameterizedTest
         @ValueSource(ints = [0, -5, 101])
         fun `rejects page size outside 1 to 100`(size: Int) {
-            assertThrows<InvalidInputException> { catalog.list("", null, 0, size) }
+            assertThrows<InvalidInputException> { catalog.list("", emptyList(), 0, size) }
         }
 
         @ParameterizedTest
         @ValueSource(ints = [1, 100])
         fun `accepts page size at the limits`(size: Int) {
             whenever(movies.findByTitleContainingIgnoreCase(any(), any())).thenReturn(PageImpl(emptyList()))
-            catalog.list("", null, 0, size)
+            catalog.list("", emptyList(), 0, size)
+        }
+    }
+
+    @Nested
+    inner class GetByIds {
+        @Test
+        fun `keeps request order, drops duplicates and unknown ids`() {
+            whenever(movies.findAllById(listOf(3L, 1L, 99L))).thenReturn(listOf(movie(1), movie(3)))
+            assertEquals(listOf(3L, 1L), catalog.getByIds(listOf(3, 1, 3, 99)).map { it.id })
+        }
+
+        @Test
+        fun `rejects more than 500 ids`() {
+            whenever(movies.findAllById(any<Iterable<Long>>())).thenReturn(emptyList())
+            catalog.getByIds((1L..500L).toList())
+            assertThrows<InvalidInputException> { catalog.getByIds((1L..501L).toList()) }
         }
     }
 
@@ -118,12 +139,6 @@ class MovieCatalogTest {
             assertEquals(now, created.createdAt)
             assertEquals(now, created.updatedAt)
             assertNull(created.artworkUpdatedAt)
-        }
-
-        @Test
-        fun `saves region, which is optional`() {
-            assertEquals(Region.SINGAPORE, catalog.create(draft().copy(region = Region.SINGAPORE)).region)
-            assertNull(catalog.create(draft()).region)
         }
 
         @Test
@@ -187,10 +202,9 @@ class MovieCatalogTest {
             val existing = Movie("Old", 2000, "", "", createdAt = Instant.EPOCH, updatedAt = Instant.EPOCH, id = 1)
             whenever(movies.findById(1)).thenReturn(Optional.of(existing))
 
-            val updated = catalog.update(1, draft(title = "New", releaseYear = null).copy(region = Region.HOLLYWOOD))
+            val updated = catalog.update(1, draft(title = "New", releaseYear = null))
 
             assertEquals("New", updated.title)
-            assertEquals(Region.HOLLYWOOD, updated.region)
             assertNull(updated.releaseYear)
             assertEquals(Instant.EPOCH, updated.createdAt)
             assertEquals(now, updated.updatedAt)

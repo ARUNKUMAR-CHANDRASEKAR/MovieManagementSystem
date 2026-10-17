@@ -11,6 +11,7 @@
   let deleting = $state(false);
 
   async function confirmDelete() {
+    if (deleting) return; // ignore a double-click while the first delete runs
     deleting = true;
     try {
       await ondelete();

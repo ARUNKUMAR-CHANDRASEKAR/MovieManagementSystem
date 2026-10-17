@@ -9,6 +9,10 @@
   --danger: #b91c1c;
   --success: #15803d;
   --skeleton: #e7eaee;
+  --seat-free: #e8f5ec;
+  --seat-free-border: #8cc8a0;
+  --seat-selected: #2563eb;
+  --seat-sold: #b8bec8;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.04);
   color-scheme: light dark;
@@ -26,6 +30,10 @@
     --danger: #f87171;
     --success: #4ade80;
     --skeleton: #232730;
+    --seat-free: #1d3326;
+    --seat-free-border: #3f7a52;
+    --seat-selected: #3b82f6;
+    --seat-sold: #3a3f48;
   }
 }
 

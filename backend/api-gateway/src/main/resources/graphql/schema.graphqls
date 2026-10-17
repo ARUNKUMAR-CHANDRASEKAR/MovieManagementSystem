@@ -1,6 +1,6 @@
 type Query {
-  "Movies sorted by title. `search` matches part of the title, case-insensitive. Leave `region` empty for all regions."
-  movies(search: String = "", region: Region, page: Int = 0, size: Int = 12): MoviePage!
+  "Movies sorted by title. `search` matches part of the title, case-insensitive. `showingIn` limits to movies showing in a country."
+  movies(search: String = "", showingIn: Country, page: Int = 0, size: Int = 12): MoviePage!
   movie(id: ID!): Movie!
 
   "Cast and creators sorted by name. Leave `role` empty to list both."
@@ -31,8 +31,6 @@ type Movie {
   releaseYear: Int
   genre: String!
   synopsis: String!
-  "Null when not set."
-  region: Region
   "Null when the movie has no artwork."
   artworkUrl: String
   "Cast and creators of this movie."
@@ -46,12 +44,6 @@ type Person {
   bio: String!
   "Movies this person is credited on."
   movies: [Movie!]!
-}
-
-enum Region {
-  SINGAPORE
-  INDIA
-  HOLLYWOOD
 }
 
 enum PersonRole {
@@ -78,7 +70,6 @@ input MovieInput {
   releaseYear: Int
   genre: String = ""
   synopsis: String = ""
-  region: Region
 }
 
 input PersonInput {

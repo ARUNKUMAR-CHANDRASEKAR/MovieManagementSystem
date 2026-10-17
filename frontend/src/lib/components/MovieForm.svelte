@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { REGION_LABEL, type Movie, type MovieInput, type Region } from '$lib/types';
+  import type { Movie, MovieInput } from '$lib/types';
   import { LIMITS, validateMovie, type FieldErrors, type MovieFormValues } from '$lib/validation';
 
   interface Props {
@@ -17,14 +17,15 @@
     title: start?.title ?? '',
     releaseYear: start?.releaseYear?.toString() ?? '',
     genre: start?.genre ?? '',
-    synopsis: start?.synopsis ?? '',
-    region: start?.region ?? ''
+    synopsis: start?.synopsis ?? ''
   });
   let errors = $state<FieldErrors>({});
   let saving = $state(false);
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
+    // A fast double-click fires submit twice before the disabled button re-renders.
+    if (saving) return;
     const result = validateMovie(values);
     errors = result.errors;
     if (!result.input) return;
@@ -53,15 +54,6 @@
       <label for="genre">Genre</label>
       <input id="genre" bind:value={values.genre} maxlength={LIMITS.genre} placeholder="e.g. Action" aria-invalid={!!errors.genre} />
       {#if errors.genre}<span class="field-error">{errors.genre}</span>{/if}
-    </div>
-    <div class="field">
-      <label for="region">Region</label>
-      <select id="region" bind:value={values.region}>
-        <option value="">Not set</option>
-        {#each Object.entries(REGION_LABEL) as [value, label] (value)}
-          <option value={value as Region}>{label}</option>
-        {/each}
-      </select>
     </div>
   </div>
   <div class="field">

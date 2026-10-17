@@ -4,7 +4,12 @@ import com.govtech.movies.grpc.movie.Movie
 import com.govtech.movies.grpc.movie.MovieList
 import com.govtech.movies.grpc.movie.MoviePage
 import com.govtech.movies.grpc.movie.MovieServiceGrpc.MovieServiceBlockingStub
-import com.govtech.movies.grpc.movie.Region
+import com.govtech.movies.grpc.showtime.Country
+import com.govtech.movies.grpc.showtime.ListShowtimesRequest
+import com.govtech.movies.grpc.showtime.Showtime
+import com.govtech.movies.grpc.showtime.ShowtimeList
+import com.govtech.movies.grpc.showtime.MovieIdList
+import com.govtech.movies.grpc.showtime.ShowtimeServiceGrpc.ShowtimeServiceBlockingStub
 import com.govtech.movies.grpc.movie.UploadArtworkRequest
 import com.govtech.movies.grpc.people.PeopleServiceGrpc.PeopleServiceBlockingStub
 import com.govtech.movies.grpc.people.Person
@@ -44,11 +49,13 @@ class GraphQlApiTest {
 
     private val movies = mock<MovieServiceBlockingStub>()
     private val people = mock<PeopleServiceBlockingStub>()
+    private val showtimes = mock<ShowtimeServiceBlockingStub>()
 
     @BeforeEach
     fun stubs() {
         whenever(grpc.movies()).thenReturn(movies)
         whenever(grpc.people()).thenReturn(people)
+        whenever(grpc.showtimes()).thenReturn(showtimes)
     }
 
     private fun movie(id: Long, vararg personIds: Long, artworkAt: Long = 0, year: Int? = null) =
@@ -84,40 +91,46 @@ class GraphQlApiTest {
             .path("movies.items[1].releaseYear").valueIsNull()
 
         assertEquals("", request.firstValue.search)
-        assertEquals(Region.REGION_UNSPECIFIED, request.firstValue.region)
+        assertEquals(emptyList<Long>(), request.firstValue.idsList)
         assertEquals(0, request.firstValue.page)
         assertEquals(12, request.firstValue.size)
     }
 
     @Test
-    fun `filters movies by region and returns each movie's region`() {
+    fun `showingIn lists only movies showing in that country, with search and paging`() {
+        whenever(showtimes.listMovieIdsShowing(any())).thenReturn(MovieIdList.newBuilder().addAllMovieIds(listOf(3, 9)).build())
         val request = argumentCaptor<com.govtech.movies.grpc.movie.ListMoviesRequest>()
         whenever(movies.listMovies(request.capture())).thenReturn(
-            MoviePage.newBuilder()
-                .addMovies(movie(1).toBuilder().setRegion(Region.SINGAPORE))
-                .addMovies(movie(2))
-                .build(),
+            MoviePage.newBuilder().addMovies(movie(3)).setTotalCount(1).setPage(0).setSize(12).build(),
         )
 
-        graphQl.document("{ movies(region: SINGAPORE) { items { region } } }").execute()
-            .path("movies.items[0].region").entity(String::class.java).isEqualTo("SINGAPORE")
-            .path("movies.items[1].region").valueIsNull()
+        graphQl.document("""{ movies(search: "ja", showingIn: SINGAPORE) { totalCount items { id } } }""").execute()
+            .path("movies.items[*].id").entityList(String::class.java).containsExactly("3")
 
-        assertEquals(Region.SINGAPORE, request.firstValue.region)
+        assertEquals(listOf(3L, 9L), request.firstValue.idsList)
+        assertEquals("ja", request.firstValue.search)
+        verify(showtimes).listMovieIdsShowing(org.mockito.kotlin.argThat { country == Country.SINGAPORE })
     }
 
     @Test
-    fun `creates a movie with a region`() {
-        val request = argumentCaptor<com.govtech.movies.grpc.movie.MovieInput>()
-        whenever(movies.createMovie(request.capture())).thenReturn(movie(7))
-        graphQl.document("""mutation { createMovie(input: { title: "Leo", region: INDIA }) { id } }""").execute()
-            .path("createMovie.id").hasValue()
-        assertEquals(Region.INDIA, request.firstValue.region)
+    fun `nothing showing gives an empty page instead of every movie`() {
+        whenever(showtimes.listMovieIdsShowing(any())).thenReturn(MovieIdList.getDefaultInstance())
+        graphQl.document("{ movies(showingIn: MALAYSIA, page: 2) { totalCount page items { id } } }").execute()
+            .path("movies.totalCount").entity(Int::class.java).isEqualTo(0)
+            .path("movies.page").entity(Int::class.java).isEqualTo(2)
+        verify(movies, never()).listMovies(any())
     }
 
     @Test
-    fun `unknown region is rejected by the schema`() {
-        graphQl.document("{ movies(region: KOREA) { totalCount } }").execute().errors().satisfy { assertEquals(1, it.size) }
+    fun `without showingIn showtime-service is not called`() {
+        whenever(movies.listMovies(any())).thenReturn(MoviePage.getDefaultInstance())
+        graphQl.document("{ movies { totalCount } }").execute().path("movies.totalCount").hasValue()
+        verify(showtimes, never()).listMovieIdsShowing(any())
+    }
+
+    @Test
+    fun `unknown country is rejected by the schema`() {
+        graphQl.document("{ movies(showingIn: INDIA) { totalCount } }").execute().errors().satisfy { assertEquals(1, it.size) }
         verify(movies, never()).listMovies(any())
     }
 
@@ -164,7 +177,6 @@ class GraphQlApiTest {
         assertEquals("Leo", request.firstValue.title)
         assertEquals(false, request.firstValue.hasReleaseYear())
         assertEquals("", request.firstValue.genre)
-        assertEquals(Region.REGION_UNSPECIFIED, request.firstValue.region)
     }
 
     @Test
@@ -279,5 +291,31 @@ class GraphQlApiTest {
     fun `delete person returns true`() {
         graphQl.document("""mutation { deletePerson(id: "3") }""").execute()
             .path("deletePerson").entity(Boolean::class.java).isEqualTo(true)
+    }
+
+    @Test
+    fun `delete movie is refused while it has upcoming shows`() {
+        whenever(showtimes.listShowtimes(any())).thenReturn(
+            ShowtimeList.newBuilder().addShowtimes(Showtime.getDefaultInstance()).addShowtimes(Showtime.getDefaultInstance()).build(),
+        )
+        assertError(
+            """mutation { deleteMovie(id: "4") }""",
+            ErrorType.BAD_REQUEST,
+            "This movie has 2 upcoming shows and cannot be deleted until they are over",
+        )
+        verify(movies, never()).deleteMovie(any())
+    }
+
+    @Test
+    fun `delete movie without upcoming shows checks all countries, then deletes`() {
+        val request = argumentCaptor<ListShowtimesRequest>()
+        whenever(showtimes.listShowtimes(request.capture())).thenReturn(ShowtimeList.getDefaultInstance())
+
+        graphQl.document("""mutation { deleteMovie(id: "4") }""").execute()
+            .path("deleteMovie").entity(Boolean::class.java).isEqualTo(true)
+
+        assertEquals(4L, request.firstValue.movieId)
+        assertEquals(Country.COUNTRY_UNSPECIFIED, request.firstValue.country)
+        verify(movies).deleteMovie(any())
     }
 }

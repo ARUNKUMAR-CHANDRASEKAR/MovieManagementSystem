@@ -1,4 +1,4 @@
-import type { MovieInput, PersonInput, Region, Role } from './types';
+import type { MovieInput, PersonInput, Role } from './types';
 
 // Same limits as the backend services. The backend is the authority; these give instant feedback.
 export const LIMITS = {
@@ -21,7 +21,6 @@ export interface MovieFormValues {
   releaseYear: string;
   genre: string;
   synopsis: string;
-  region: Region | '';
 }
 
 export interface PersonFormValues {
@@ -63,7 +62,7 @@ export function validateMovie(
   if (synopsisError) errors.synopsis = synopsisError;
 
   if (Object.keys(errors).length) return { errors };
-  return { input: { title, releaseYear, genre, synopsis, region: values.region || null }, errors };
+  return { input: { title, releaseYear, genre, synopsis }, errors };
 }
 
 export function validatePerson(values: PersonFormValues): { input?: PersonInput; errors: FieldErrors } {
